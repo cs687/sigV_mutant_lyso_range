@@ -1,4 +1,4 @@
-function plotting_rsiV_mutant_data_2024_03_25_v1
+function plotting_rsiV_mutant_lyso_range_24_06_25_v1
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %What to plotswitch_frame
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -17,7 +17,7 @@ plot_10xV=0;
 plot_all_data=0;
 plot_all_single=1;%%%%%%%%%%%%%%%
 plot_all_data_part=0;
-plot_hetero_cum=0;
+plot_hetero_cum=1;
 plot_hetero_hist=0;
 plot_mean_fraction=0;
 plot_single_trace_15x=0;
@@ -600,7 +600,7 @@ if plot_single_trace2==1;
     %             end
             end
         end
-        if export_data==1&&i==1
+        if export_data==1&&i==1!
             exportgraphics(gcf,[data_path_main,'\Figures\all_single_cell_all.png'],'Resolution',1200);
         elseif export_data==1&&i==2
             exportgraphics(gcf,[data_path_main,'\Figures\all_single_cell_goodones.png'],'Resolution',1200);
@@ -807,43 +807,57 @@ end
 if plot_hetero_cum==1;
     
     figure('units','normalized','outerposition',[0 0 1 1]);
-    for day_now=1:length(data_day);
-        for strain_now=1:length(strains);
-            subplot(5,2,strain_now);
-            if day_now==1
-                title(t_names{strain_now});
-                xlabel('frames');
-                ylabel('Fraction');
-                box on;
-                axis([0,150,0,1])
-            end
-            if isempty(all_data{day_now,strain_now});
-                continue;
-            end
-            data_all=all_data{day_now,strain_now}.MY-200;
-            data_part=data_all(1:switch_frame(day_now),:);
-            if strain_now==1
-                m=nanmean(data_part(:));
-                s=nanmean(data_part(:));
-                thresh=m+3*s;
-            end
-            
-            data_part_on=data_all(switch_frame(day_now):last_frame,:);
-            goodones=~isnan(data_part_on(end,:));
-            data_part_on2=data_part_on(:,goodones);
-            on_temp=sum(data_part_on2>thresh,2)/sum(goodones);
+    ii=0;
+    for strain_now=1:length(strains)
+        for cond_now=1:length(condition)
+            ii=ii+1;
+            for rep_now=1:length(repeat_name)
+                %subplot(2,2,strain_now);
+                subplot(4,3,ii);
 
-
-            hold on;
-            plot(on_temp,'color',cmap(strain_now,:),'LineStyle', repeat_line{day_now});
-%             if day_now==1
-%                 title(t_names{strain_now});
-%                 xlabel('frames');
-%                 ylabel('Fraction');
-%                 box on;
-%                 axis([0,150,0,1])
-%             end
-             sgtitle('Cumulative Activation');
+                if rep_now==1
+                    %title(t_names{strain_now});
+                    title(['S: ',strains{strain_now},' C:',condition{cond_now}]);
+                    xlabel('frames');
+                    ylabel('Fraction');
+                    box on;
+                    axis([0,150,0,1])
+                end
+                if isempty(all_data{rep_now,strain_now,cond_now});
+                    continue;
+                end
+                goodones=~isnan(data_now(last_frame,:));
+                data_gr_now=all_data{rep_now,strain_now,cond_now}.elong_rate(1:last_frame,:);
+                m_gr_now=nanmean(data_gr_now,2);
+                
+                if sum(goodones)<=cut_off&&sum(fg)/sum(goodones)>=max_cells_short_gr/50
+                    continue;
+                end
+                data_all=all_data{rep_now,strain_now,cond_now}.MY-200;
+                data_part=data_all(1:switch_frame(day_now),:);
+                if strain_now==1
+                    m=nanmean(data_part(:));
+                    s=nanmean(data_part(:));
+                    thresh=m+3*s;
+                end
+                
+                data_part_on=data_all(switch_frame(day_now):last_frame,:);
+                goodones=~isnan(data_part_on(end,:));
+                data_part_on2=data_part_on(:,goodones);
+                on_temp=sum(data_part_on2>thresh,2)/sum(goodones);
+    
+    
+                hold on;
+                plot(on_temp,'color',cmap(cond_now,:),'LineStyle', repeat_line{rep_now});
+    %             if day_now==1
+    %                 title(t_names{strain_now});
+    %                 xlabel('frames');
+    %                 ylabel('Fraction');
+    %                 box on;
+    %                 axis([0,150,0,1])
+    %             end
+                 sgtitle('Cumulative Activation');
+            end
         end
     end
     if export_data==1
