@@ -24,13 +24,18 @@ plot_single_trace_15x_single=0;
 export_data=0;
 
 %%%%%%%%%%%%%%%%%%%%%%
-% Swtich input
+% Adjsut for different swtich times
 %%%%%%%%%%%%%%%%%%%%%%%%%
 switch_frame=[101,101,102,101,101,...
-    107,107,107,107,107,107,107];%frames when switching happend
+107,107,107,107,107,107,107];%frames when switching happend
 adjust_switch=1; %1 when for different switching is adjusted 0 otherwise
 adjust_to=101; %Frame to which to adjust
 last_frame=220;%289 %last frame of movie/ to analyize
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Remove cells which do not make to to the end of the movie
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+remove_lost_cells=1;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%
 % Kill input
@@ -38,6 +43,7 @@ last_frame=220;%289 %last frame of movie/ to analyize
 kill=1; %1= Removing repeats with problems 0 otherwise
 max_cells_rep=40; %min number of cells in last frame
 max_cells_short_gr=10;%Use to calculate how many slow growing cells are acceptable in one repeat
+
 
 
 %Getting path with all data
@@ -73,8 +79,8 @@ t_names= {'WT','5xrsiV amyE','10xrsiV +sigV','15xrsiV +sigV'};%More useful name 
 % Plotting characteristics
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 plot_what='MY'; %Which property to plot
-plot_what='MR';%Which property to plot
-plot_what='elong_rate';%Which property to plot
+% plot_what='MR';%Which property to plot
+% plot_what='elong_rate';%Which property to plot
 cmap=distinguishable_colors(10); %colormap for plott
 repeat_line={'-','--',':','-.','-','--',':','-.','-','--',':','-.','-','--',':','-.','-','--',':','-.','-'};%Defining Line prop
 axis_y_max=[1500,3000,4000,500,1500,2500,1000,3000,3500,600,1000,2000]; %Max y for individual plots
@@ -137,7 +143,6 @@ for day_now=1:length(data_day)
                         for fn=1:length(fnames)
                             %Getting all field names
                             temp_field_data=data_temp.(fnames{fn});
-%                             MY_temp=data_temp.MY;
                             %calculating adjustment
                             temp_matrix=nan(size(temp_field_data));%defining variable
                             temp_matrix(1:(289-adjust),:)=temp_field_data((1+adjust):289,:);
@@ -145,11 +150,11 @@ for day_now=1:length(data_day)
                             clear temp_matrix;
                         end
     
-                            %saving corrected data
-                            all_data{rep_now,strain_now,cond_now}=data_temp;
+                        %saving corrected data
+                        all_data{rep_now,strain_now,cond_now}=data_temp;
                         
                         %making a matrix with conditions to kill:
-                        data_now=all_data{rep_now,strain_now,cond_now}.(plot_what)(1:last_frame,:);
+                        data_now=all_data{rep_now,strain_now,cond_now}.('MY')(1:last_frame,:);
                         data_gr_now=all_data{rep_now,strain_now,cond_now}.elong_rate(1:last_frame,:);
                         m_gr_now=nanmean(data_gr_now,2);
                         goodones=~isnan(data_now(last_frame,:));
@@ -161,6 +166,23 @@ for day_now=1:length(data_day)
                            ind_kill(rep_now,strain_now,cond_now)=0;
                         end
                     end
+
+                    if remove_lost_cells==1
+                        data_temp=all_data{rep_now,strain_now,cond_now};
+                        data_MY=data_temp.('MY')(1:last_frame,:);
+
+                        goodones=~isnan(data_MY(last_frame,:));
+                        fnames=fieldnames(data_temp); %Getting all fieldnames
+                        for fn=1:length(fnames)
+                            %Getting all field names
+                            temp_field_data=data_temp.(fnames{fn});
+                            %calculating adjustment
+                            data_temp.(fnames{fn})=temp_field_data(:,goodones);
+                        end
+                        all_data{rep_now,strain_now,cond_now}=data_temp;
+                    end
+
+
                 end
             end
         end
