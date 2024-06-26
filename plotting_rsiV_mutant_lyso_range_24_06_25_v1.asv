@@ -130,15 +130,19 @@ for day_now=1:length(data_day)
                         %Actual loading of data
                         data_temp=load([data_path_main,data_day{day_now},'\Data\',D(repeat_do).name]);
 
-                        %aligning MY data
-                        MY_temp=data_temp.MY;
-                        MY_temp2=nan(size(MY_temp));
+                        %aligning all data
+                        fnames=fieldnames(data_temp);
                         adjust=switch_frame(day_now)-adjust_to;
-                        MY_temp2(1:(289-adjust),:)=MY_temp((1+adjust):289,:);
-                        data_temp.MY=MY_temp2;
 
-                        %saving corrected data
-                        all_data{rep_now,strain_now,cond_now}=data_temp;
+                        for fn=1:length(fnames)
+                            temp_field_data=data_temp.(fnames{fn});
+%                             MY_temp=data_temp.MY;
+                            temp_matrix=nan(size(temp_field_data));
+                            temp_matrix(1:(289-adjust),:)=temp_field_data((1+adjust):289,:);
+                            data_temp.MY=MY_temp2;
+    
+                            %saving corrected data
+                            all_data{rep_now,strain_now,cond_now}=data_temp;
                         
                         %making a matrix with conditions to kill:
                         data_now=all_data{rep_now,strain_now,cond_now}.(plot_what)(1:last_frame,:);
@@ -310,8 +314,13 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if plot_all_single==1;
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %
+    % Description
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Plotting individual repats in their own subplot. Each plot has single
+    % cell traces.
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
     %parameters
     good_traces_only=1;%plots only traces longer than cutoff
     %cut_off=40;

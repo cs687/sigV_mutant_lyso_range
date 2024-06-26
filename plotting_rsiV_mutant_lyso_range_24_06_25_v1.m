@@ -73,8 +73,8 @@ t_names= {'WT','5xrsiV amyE','10xrsiV +sigV','15xrsiV +sigV'};%More useful name 
 % Plotting characteristics
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 plot_what='MY'; %Which property to plot
-%plot_what='MR';%Which property to plot
-%plot_what='elong_rate';%Which property to plot
+plot_what='MR';%Which property to plot
+plot_what='elong_rate';%Which property to plot
 cmap=distinguishable_colors(10); %colormap for plott
 repeat_line={'-','--',':','-.','-','--',':','-.','-','--',':','-.','-','--',':','-.','-','--',':','-.','-'};%Defining Line prop
 axis_y_max=[1500,3000,4000,500,1500,2500,1000,3000,3500,600,1000,2000]; %Max y for individual plots
@@ -130,15 +130,23 @@ for day_now=1:length(data_day)
                         %Actual loading of data
                         data_temp=load([data_path_main,data_day{day_now},'\Data\',D(repeat_do).name]);
 
-                        %aligning MY data
-                        MY_temp=data_temp.MY;
-                        MY_temp2=nan(size(MY_temp));
-                        adjust=switch_frame(day_now)-adjust_to;
-                        MY_temp2(1:(289-adjust),:)=MY_temp((1+adjust):289,:);
-                        data_temp.MY=MY_temp2;
+                        %aligning all data
+                        fnames=fieldnames(data_temp); %Getting all fieldnames
+                        adjust=switch_frame(day_now)-adjust_to; %Determining needed adjustment for this repeat
 
-                        %saving corrected data
-                        all_data{rep_now,strain_now,cond_now}=data_temp;
+                        for fn=1:length(fnames)
+                            %Getting all field names
+                            temp_field_data=data_temp.(fnames{fn});
+%                             MY_temp=data_temp.MY;
+                            %calculating adjustment
+                            temp_matrix=nan(size(temp_field_data));%defining variable
+                            temp_matrix(1:(289-adjust),:)=temp_field_data((1+adjust):289,:);
+                            data_temp.(fnames{fn})=temp_matrix;
+                            clear temp_matrix;
+                        end
+    
+                            %saving corrected data
+                            all_data{rep_now,strain_now,cond_now}=data_temp;
                         
                         %making a matrix with conditions to kill:
                         data_now=all_data{rep_now,strain_now,cond_now}.(plot_what)(1:last_frame,:);
