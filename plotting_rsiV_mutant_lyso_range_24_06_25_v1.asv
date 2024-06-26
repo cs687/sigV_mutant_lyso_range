@@ -3,10 +3,8 @@ function plotting_rsiV_mutant_lyso_range_24_06_25_v1
 %What to plotswitch_frame
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %close all;
-plot_mean_individual_strain=0;
-plot_mean_all=1;
-
-
+plot_mean_individual_strain=1; %plots mean data with each strain in a subplot, different conditions are plotted in different colours, repeats are plotted as individual lines with different line specs
+plot_mean_all=1; %as plot_mean_individual_strain but plots mean of all repeats with each strain in a subolot, in different colours, only the mean for a condition and strain is plotted.
 
 plot_mean_individual=0;
 plot_single_trace=0;
@@ -25,28 +23,33 @@ plot_single_trace_15x_single=0;
 
 export_data=0;
 
+%%%%%%%%%%%%%%%%%%%%%%
+% Swtich input
+%%%%%%%%%%%%%%%%%%%%%%%%%
 switch_frame=[101,101,102,101,101,...
-    107,107,107,107,107,107,107];
-adjust_switch=1;
-adjust_to=101;
-last_frame=220;%289
-%last_frame=289;
-max_cells_rep=40;
-max_cells_short_gr=10;%10
-plot_what='MY';
-%plot_what='MR';
-%plot_what='elong_rate';
+    107,107,107,107,107,107,107];%frames when switching happend
+adjust_switch=1; %1 when for different switching is adjusted 0 otherwise
+adjust_to=101; %Frame to which to adjust
+last_frame=220;%289 %last frame of movie/ to analyize
 
-kill=0;
-conditions_to_skip=[4,1;1,5;2,6;1,8;3,8];
+%%%%%%%%%%%%%%%%%%%%%%%%%
+% Kill input
+%%%%%%%%%%%%%%%%%%%%%%%%%
+kill=1; %1= Removing repeats with problems 0 otherwise
+max_cells_rep=40; %min number of cells in last frame
+max_cells_short_gr=10;%Use to calculate how many slow growing cells are acceptable in one repeat
 
+
+%Getting path with all data
 p = mfilename('fullpath');
 f=strfind(p,'\');
-% f_path=p(1:f(end-1));
-
-% data_path=[p(1:f(end-1)),'Data\'];
-%input strains 
 data_path_main=[p(1:f(end-2))];
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+% Data loading characteristics
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+%Name of days with repeats
 data_day={'2024-03-11','2024-03-19','2024-03-22','2024-04-01','2024-04-02','2024-04-23','2024-05-21','2024-05-28','2024-05-30','2024-06-03','2024-06-10','2024-06-12'};
 %data_day={'2024-03-22','2024-04-01','2024-04-02','2024-04-23','2024-05-21','2024-05-28','2024-05-30','2024-06-03','2024-06-10','2024-06-12'};
 %data_day={'2024-04-23','2024-05-21','2024-05-28','2024-05-30','2024-06-03','2024-06-10','2024-06-12'};%data 0.1 0.5
@@ -57,76 +60,128 @@ data_day={'2024-03-11','2024-03-19','2024-03-22','2024-04-01','2024-04-02','2024
 %data_day={'2024-06-03'};
 %data_day={'2024-06-10'};
 %data_day={'2024-06-12'};
-max_repeats=21;
-repeat_name={'1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21'};
-condition={'01','05'};
+max_repeats=21; %maximum number of repeats
+repeat_name={'1','2','3','4','5','6','7','8','9','10','11','12','13','14','15','16','17','18','19','20','21'}; %name of repeats
+condition={'01','05'}; %name of conditions 01 stands for 0.1 ug/ml lyzosyme and 05 for 0.5 ug/ml lysozyme
 condition={'01','05','1'};
 %condition={'1'};
-strains={'JLB130','JLB293','JLB327','JLB82'};
-t_names= {'WT','5xrsiV amyE','10xrsiV +sigV','15xrsiV +sigV'};
-axis_y_max=[1500,3000,4000,500,1500,2500,1000,3000,3500,600,1000,2000];
+strains={'JLB130','JLB293','JLB327','JLB82'}; %Name of strains in strain list
+t_names= {'WT','5xrsiV amyE','10xrsiV +sigV','15xrsiV +sigV'};%More useful name of strains
 
 
-cmap=distinguishable_colors(10);
-repeat_line={'-','--',':','-.','-','--',':','-.','-','--',':','-.','-','--',':','-.','-','--',':','-.','-'};
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Plotting characteristics
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+plot_what='MY'; %Which property to plot
+%plot_what='MR';%Which property to plot
+%plot_what='elong_rate';%Which property to plot
+cmap=distinguishable_colors(10); %colormap for plott
+repeat_line={'-','--',':','-.','-','--',':','-.','-','--',':','-.','-','--',':','-.','-','--',':','-.','-'};%Defining Line prop
+axis_y_max=[1500,3000,4000,500,1500,2500,1000,3000,3500,600,1000,2000]; %Max y for individual plots
+title_names_simple=1; %1 for simple title; 0 for more info into title
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %load data
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%all_data=cell(length(repeat_name),length(strains),length(condition));
+
+%Defining variables
 all_data=cell(max_repeats,length(strains),length(condition));
 all_data_names=cell(max_repeats,length(strains),length(condition));
+ind_kill=zeros(max_repeats,length(strains),length(condition));
 num_loaded_cond=zeros(length(strains),length(condition));
+
+%For loops over day, strain and condition
 for day_now=1:length(data_day)
-    %for rep_now=1:length(repeat_name);
-        for strain_now=1:length(strains);
-            for cond_now=1:length(condition);
-                %D=dir([data_path_main,data_day{day_now},'\Data\',strains{strain_now},'_',repeat_name{rep_now},'_',condition{cond_now},'*']);
-                D=dir([data_path_main,data_day{day_now},'\Data\',strains{strain_now},'_','*','_',condition{cond_now},'*']);
-                if isempty(D);
-                    continue;
-                end
-                
-                %disp([[data_path_main,data_day{day_now},'\Data\',strains{strain_now},'_',repeat_name{rep_now},'_',condition{cond_now}]])
-%                 if kill==1;
-%                     if ~isempty(find(conditions_to_skip(:,1)==day_now&conditions_to_skip(:,2)==strain_now))
-%                         continue;
-%                     end
-%                 end
-    
-                if ~isempty(D)
-                    for repeat_do=1:length(D)
-                        %disp([[data_path_main,data_day{day_now},'\Data\',strains{strain_now},'_*']]);
-                        
-                        %displaying input
-                        disp([data_path_main,data_day{day_now},'\Data\',D(repeat_do).name]); 
-                        %Setting Repeat index
-                        num_loaded_cond(strain_now,cond_now)=num_loaded_cond(strain_now,cond_now)+1;
-                        rep_now=num_loaded_cond(strain_now,cond_now);
-                        %Saving_name
-                        %all_data_names{rep_now,strain_now,cond_now}={[data_day{day_now},': ',strrep(D(repeat_do).name(1:end-9),'_',' ')];[' S:',strains{strain_now}(4:end),' R:',num2str(rep_now),' c:',condition{cond_now}]};
+    for strain_now=1:length(strains);
+        for cond_now=1:length(condition);
+
+            %Check if condition exists
+            D=dir([data_path_main,data_day{day_now},'\Data\',strains{strain_now},'_','*','_',condition{cond_now},'*']);
+            if isempty(D);
+                %If condition does not exist skip the rest
+                %disp([data_path_main,data_day{day_now},'\Data\',strains{strain_now}])
+                continue; 
+            else
+
+                %Going through all repeats of the day
+                for repeat_do=1:length(D)
+                    %displaying what is loaded
+                    disp([data_path_main,data_day{day_now},'\Data\',D(repeat_do).name]); 
+
+                    %Setting Repeat index
+                    num_loaded_cond(strain_now,cond_now)=num_loaded_cond(strain_now,cond_now)+1;
+                    rep_now=num_loaded_cond(strain_now,cond_now);
+
+                    %Saving_name in two different formats depending on
+                    %all_data_names
+                    if title_names_simple==0
+                        all_data_names{rep_now,strain_now,cond_now}={[data_day{day_now},': ',strrep(D(repeat_do).name(1:end-9),'_',' ')];[' S:',strains{strain_now}(4:end),' R:',num2str(rep_now),' c:',condition{cond_now}]};
+                    else
                         all_data_names{rep_now,strain_now,cond_now}={[' S:',strains{strain_now}(4:end),' R:',num2str(rep_now),' c:',condition{cond_now}]};
-                        if adjust_switch==0
-                            all_data{rep_now,day_now,strain_now}=load([data_path_main,data_day{day_now},'\Data\',D(repeat_do).name]);
+                    end
+                    
+                    %Adjusting loaded data for different switching times
+                    if adjust_switch==0
+                        %Loading data for no switching
+                        all_data{rep_now,day_now,strain_now}=load([data_path_main,data_day{day_now},'\Data\',D(repeat_do).name]);
+                    else
+                        %Actual loading of data
+                        data_temp=load([data_path_main,data_day{day_now},'\Data\',D(repeat_do).name]);
+
+                        %aligning MY data
+                        MY_temp=data_temp.MY;
+                        MY_temp2=nan(size(MY_temp));
+                        adjust=switch_frame(day_now)-adjust_to;
+                        MY_temp2(1:(289-adjust),:)=MY_temp((1+adjust):289,:);
+                        data_temp.MY=MY_temp2;
+
+                        %saving corrected data
+                        all_data{rep_now,strain_now,cond_now}=data_temp;
+                        
+                        %making a matrix with conditions to kill:
+                        data_now=all_data{rep_now,strain_now,cond_now}.(plot_what)(1:last_frame,:);
+                        data_gr_now=all_data{rep_now,strain_now,cond_now}.elong_rate(1:last_frame,:);
+                        m_gr_now=nanmean(data_gr_now,2);
+                        goodones=~isnan(data_now(last_frame,:));
+                        %two conditions 1. I need a min number of cells
+                        % 2. a min ratio of normal growing cells
+                        if sum(goodones)>max_cells_rep&&sum(m_gr_now<0.3)/sum(goodones)<max_cells_short_gr/max_cells_rep
+                           ind_kill(rep_now,strain_now,cond_now)=1;
                         else
-                            data_temp=load([data_path_main,data_day{day_now},'\Data\',D(repeat_do).name]);
-                            MY_temp=data_temp.MY;
-                            MY_temp2=nan(size(MY_temp));
-                            adjust=switch_frame(day_now)-adjust_to;
-                            MY_temp2(1:(289-adjust),:)=MY_temp((1+adjust):289,:);
-                            data_temp.MY=MY_temp2;
-                            all_data{rep_now,strain_now,cond_now}=data_temp;
+                           ind_kill(rep_now,strain_now,cond_now)=0;
                         end
                     end
-                else
-                    disp([data_path_main,data_day{day_now},'\Data\',strains{strain_now}])
                 end
             end
         end
-    %end
+    end
 end
+%Killing bad repeats
+if kill==1;
+    all_data_temp=cell(max_repeats,length(strains),length(condition));
+    all_data_names_temp=cell(max_repeats,length(strains),length(condition));
+    ind_kill=logical(ind_kill);
+    for strain_now=1:length(strains)
+        for cond_now=1:length(condition)
+            ind=1;
+            for rep_now=1:size(all_data,1);
+                if ind_kill(rep_now,strain_now,cond_now)==1
+                    all_data_temp{ind,strain_now,cond_now}=all_data{rep_now,strain_now,cond_now};
+                    all_data_names_temp{ind,strain_now,cond_now}=all_data_names{rep_now,strain_now,cond_now};
+                    ind=ind+1;
+                end
+            end
+        end
+    end
+    %saving corrected data to old variable
+    all_data=all_data_temp;
+    all_data_names=all_data_names_temp;
+end
+
+% disp('test');
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -140,52 +195,48 @@ end
 % Plotting mean by condition
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if plot_mean_individual_strain==1;
-    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Descrption
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % plots mean data with each strain in a subplot, different conditions 
+    % are plotted in different colours, repeats are plotted as individual 
+    % lines with different line specs
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %Setting Figure
     figure('units','normalized','outerposition',[0 0 1 1]);
-    % do_now=[1,7:10]
-    %do_now=[1,7,8];
-    
+
+   %looping over conditions
     for strain_now=1:length(strains)
         for rep_now=1:length(repeat_name)
             for cond_now=1:length(condition)
 
                 subplot(2,2,strain_now);
+                %Setting subplot figure
                 if rep_now==1
                     title(t_names{strain_now});
                     xlabel('Frames');
                     ylabel(plot_what);
                     box on;
+                    %Different axis values depending on what is plotted
                     if strcmp(plot_what,'MY');
                         axis([0,250,0,2500]);%MY;
                     elseif strcmp(plot_what,'MR');
                         axis([0,250,0,1000]);
                     elseif strcmp(plot_what,'elong_rate')
                         axis([0,250,0.2,1]);%Elong
-                    end
-                    
+                    end   
                 end
                 hold on;
+                %checking if there is somehting to plot
                 if isempty(all_data{rep_now,strain_now,cond_now})
                     continue;
                 end
-                %plot(nanmean(all_data{day_now,strain_now}.MY,2),'color',cmap(strain_now,:),'LineStyle', repeat_line{day_now});
-                %plot(nanmean(all_data{day_now,strain_now}.elong_rate,2),'color',cmap(strain_now,:),'LineStyle', repeat_line{day_now});
-                %plot(nanmean(all_data{rep_now,strain_now,cond_now}.(plot_what),2),'color',cmap(cond_now,:),'LineStyle', repeat_line{rep_now});
-                data_now=all_data{rep_now,strain_now,cond_now}.(plot_what)(1:last_frame,:);
-                data_gr_now=all_data{rep_now,strain_now,cond_now}.elong_rate(1:last_frame,:);
-                m_gr_now=nanmean(data_gr_now,2);
-                %sum(m_gr_now)
-                goodones=~isnan(data_now(last_frame,:));
-                if sum(goodones)>max_cells_rep&&sum(m_gr_now<0.3)<max_cells_short_gr
-                %if sum(goodones)>40
-                    plot(nanmean(all_data{rep_now,strain_now,cond_now}.(plot_what)(1:last_frame,:),2),'color',cmap(cond_now,:),'LineStyle', repeat_line{rep_now});
-                else
-                   % disp('shit');
-                end
-                %if day_now==length(data_day)
-    
+                %Actual Plotting
+                plot(nanmean(all_data{rep_now,strain_now,cond_now}.(plot_what)(1:last_frame,:),2),'color',cmap(cond_now,:),'LineStyle', repeat_line{rep_now});
             end
         end
+    %Setting Figure Title
     sgtitle(strrep(plot_what,'_',' '));
     if export_data==1
         exportgraphics(gcf,[data_path_main,'\Figures\mean_individual.png'],'Resolution',1200);
@@ -198,15 +249,24 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 if plot_mean_all==1;
-    
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Description
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % As plot_mean_individual_strain but plots mean of all repeats with 
+    % each strain in a subolot, in different colours, only the mean for a 
+    % condition and strain is plotted.
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %Setting figure
     figure('units','normalized','outerposition',[0 0 1 1]);
     
+    %loopting over conditions
     for strain_now=1:length(strains)
         for cond_now=1:length(condition)
+            %Defining temp data and new index var
             temp_data=nan(1100,50);
             ind_now=1;
             for rep_now=1:length(repeat_name)
-
                 subplot(2,2,strain_now);
                 %Setting up figure
                 if cond_now==1
@@ -221,37 +281,153 @@ if plot_mean_all==1;
                     elseif strcmp(plot_what,'elong_rate')
                         axis([0,250,0.2,1]);%Elong
                     end
-                    
                 end
-                hold on;
+                %only continue if there is data
                 if isempty(all_data{rep_now,strain_now,cond_now})
                     continue;
                 end
-                data_now=all_data{rep_now,strain_now,cond_now}.(plot_what)(1:last_frame,:);
-                data_gr_now=all_data{rep_now,strain_now,cond_now}.elong_rate(1:last_frame,:);
-                m_gr_now=nanmean(data_gr_now,2);
-                %sum(m_gr_now)
-                goodones=~isnan(data_now(last_frame,:));
-                if sum(goodones)>max_cells_rep&&sum(m_gr_now<0.3)<max_cells_short_gr
-                    temp_data(1:last_frame,ind_now)=nanmean(all_data{rep_now,strain_now,cond_now}.(plot_what)(1:last_frame,:),2);
-                    ind_now=ind_now+1;
-                %if sum(goodones)>40
-                    %plot(nanmean(all_data{rep_now,strain_now,cond_now}.(plot_what)(1:last_frame,:),2),'color',cmap(cond_now,:),'LineStyle', repeat_line{rep_now});
-                else
-                   % disp('shit');
-                end
-                %if day_now==length(data_day)
+                
+                %Calculating mean trace for this Repeat, strain and condition
+                temp_data(1:last_frame,ind_now)=nanmean(all_data{rep_now,strain_now,cond_now}.(plot_what)(1:last_frame,:),2);
+                ind_now=ind_now+1;
     
             end
-            %errorbar(nanmean(temp_data,2),nanstd(temp_data')/sqrt(sum(~isnan(temp_data(1,:)))),'color',cmap(cond_now,:))
-             errorbar(mean(temp_data,2,'omitnan'),std(temp_data,0,2,'omitnan')/sqrt(sum(~isnan(temp_data(1,:)))),'color',cmap(cond_now,:))
+            
+            % Calculating mean of condition and plotting this it with errorbars
+            hold on;
+            errorbar(mean(temp_data,2,'omitnan'),std(temp_data,0,2,'omitnan')/sqrt(sum(~isnan(temp_data(1,:)))),'color',cmap(cond_now,:))
         end
     sgtitle(strrep(plot_what,'_',' '));
+
     if export_data==1
         exportgraphics(gcf,[data_path_main,'\Figures\mean_individual.png'],'Resolution',1200);
     end
     end
 end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Plotting individal repeats in subplots with single cell traces
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if plot_all_single==1;
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %parameters
+    good_traces_only=1;%plots only traces longer than cutoff
+    %cut_off=40;
+    cut_off=max_cells_rep;
+    thresh_gr=0.3;
+    num_loaded_good_now=zeros(length(strains),length(condition));
+    data_do_now=cell(10,length(strains),length(condition));
+   
+    if good_traces_only==1
+        for strain_now=1:length(strains)
+            for cond_now=1:length(condition)
+                for rep_now=1:num_loaded_cond(strain_now,cond_now);
+                    data_in=all_data{rep_now,strain_now,cond_now};
+                    %data_now=data_in.MY;
+                    data_now=data_in.(plot_what);
+
+                    %Checking that growth rate is good
+                    data_gr=data_in.elong_rate;
+                    mean_gr=nanmean(data_gr,2);
+                    fg=(mean_gr<thresh_gr);
+
+                    goodones=~isnan(data_now(last_frame,:));
+                    if sum(goodones)>cut_off&&sum(fg)/sum(goodones)<max_cells_short_gr/50;
+                        num_loaded_good_now(strain_now,cond_now)=num_loaded_good_now(strain_now,cond_now)+1;
+                        data_do_now{num_loaded_good_now(strain_now,cond_now),strain_now,cond_now}=data_in;
+                        all_data_names_now{num_loaded_good_now(strain_now,cond_now),strain_now,cond_now}=all_data_names{rep_now,strain_now,cond_now};
+                    else
+                        %disp('shit');
+                    end
+                end
+            end
+        end
+    end
+
+    %First checking max number of repeats
+    max_done_repeats=max(num_loaded_cond(:));
+    max_cond=length(strains)*length(condition);
+    ind_cond=0;
+    %keep_rep=0;
+    goodones=0;
+
+    if good_traces_only==1
+        num_loaded_cond_now=num_loaded_good_now;
+        all_data_now=data_do_now;
+        max_done_repeats_here=max(num_loaded_cond_now(:));
+    else
+        all_data_now=all_data;
+        num_loaded_cond_now=num_loaded_cond;
+        max_done_repeats_here=max_done_repeats;
+    end
+    
+    figure;
+   
+    for strain_now=1:length(strains)
+        for cond_now=1:length(condition)
+            ind_cond=ind_cond+1;
+            %ind=ind_cond;
+            keep_rep=0;
+            for rep_now=1:num_loaded_cond_now(strain_now,cond_now);
+%                 %Setting index
+%                 if keep_rep~=0
+%                     ind=keep_rep;
+%                 else
+%                     ind=ind_cond+(rep_now-1)*max_cond;
+%                 end
+               ind=ind_cond+(rep_now-1)*max_cond;
+
+                %Getting data
+                data_in=all_data_now{rep_now,strain_now,cond_now};
+                %data_now=data_in.MY;
+                data_now=data_in.(plot_what);
+
+                %Cleaning data
+                goodones=~isnan(data_now(last_frame,:));
+                data_now=data_now(:,goodones);
+
+                %Plotting
+                
+%                 if sum(goodones)<30
+%                     keep_rep=ind;
+%                     continue;
+%                 else
+%                     keep_rep=0;
+%                 end
+                subplot(max_done_repeats_here,max_cond,ind);
+                plot(data_now);
+                if strcmp(plot_what,'MY')
+                    axis([0,270,0,axis_y_max(ind_cond)]);
+                elseif strcmp(plot_what,'MR')
+                    axis([0,270,0,1500]);
+                elseif strcmp(plot_what,'elong_rate')
+                    axis([0,270,0,1]);
+                end
+                %Setting title
+                %title(all_data_names{rep_now,strain_now,cond_now});
+                title(all_data_names_now{rep_now,strain_now,cond_now});
+
+                text(0.1,0.8,['n: ',num2str(sum(goodones))],'Unit','normalize');
+                
+                %Setting labels
+                if mod(ind,max_cond)==1
+                    ylabel('MY');
+                end
+                if ind>max_cond*max_done_repeats_here-max_cond
+                    xlabel('frames');
+                end
+                xline(107,'r');
+
+
+            end
+        end
+    end
+%     sgtitle(t_name3{i});
+end
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Plotting mean by condition
@@ -600,7 +776,7 @@ if plot_single_trace2==1;
     %             end
             end
         end
-        if export_data==1&&i==1
+        if export_data==1&&i==1!
             exportgraphics(gcf,[data_path_main,'\Figures\all_single_cell_all.png'],'Resolution',1200);
         elseif export_data==1&&i==2
             exportgraphics(gcf,[data_path_main,'\Figures\all_single_cell_goodones.png'],'Resolution',1200);
@@ -644,124 +820,7 @@ if plot_all_data==1;
     end
 end
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Single Cell
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-if plot_all_single==1;
-    %parameters
-    good_traces_only=1;%plots only traces longer than cutoff
-    %cut_off=40;
-    cut_off=max_cells_rep;
-    thresh_gr=0.3;
-    num_loaded_good_now=zeros(length(strains),length(condition));
-    data_do_now=cell(10,length(strains),length(condition));
-   
-    if good_traces_only==1
-        for strain_now=1:length(strains)
-            for cond_now=1:length(condition)
-                for rep_now=1:num_loaded_cond(strain_now,cond_now);
-                    data_in=all_data{rep_now,strain_now,cond_now};
-                    %data_now=data_in.MY;
-                    data_now=data_in.(plot_what);
 
-                    %Checking that growth rate is good
-                    data_gr=data_in.elong_rate;
-                    mean_gr=nanmean(data_gr,2);
-                    fg=(mean_gr<thresh_gr);
-
-                    goodones=~isnan(data_now(last_frame,:));
-                    if sum(goodones)>cut_off&&sum(fg)/sum(goodones)<max_cells_short_gr/50;
-                        num_loaded_good_now(strain_now,cond_now)=num_loaded_good_now(strain_now,cond_now)+1;
-                        data_do_now{num_loaded_good_now(strain_now,cond_now),strain_now,cond_now}=data_in;
-                        all_data_names_now{num_loaded_good_now(strain_now,cond_now),strain_now,cond_now}=all_data_names{rep_now,strain_now,cond_now};
-                    else
-                        %disp('shit');
-                    end
-                end
-            end
-        end
-    end
-
-    %First checking max number of repeats
-    max_done_repeats=max(num_loaded_cond(:));
-    max_cond=length(strains)*length(condition);
-    ind_cond=0;
-    %keep_rep=0;
-    goodones=0;
-
-    if good_traces_only==1
-        num_loaded_cond_now=num_loaded_good_now;
-        all_data_now=data_do_now;
-        max_done_repeats_here=max(num_loaded_cond_now(:));
-    else
-        all_data_now=all_data;
-        num_loaded_cond_now=num_loaded_cond;
-        max_done_repeats_here=max_done_repeats;
-    end
-    
-    figure;
-   
-    for strain_now=1:length(strains)
-        for cond_now=1:length(condition)
-            ind_cond=ind_cond+1;
-            %ind=ind_cond;
-            keep_rep=0;
-            for rep_now=1:num_loaded_cond_now(strain_now,cond_now);
-%                 %Setting index
-%                 if keep_rep~=0
-%                     ind=keep_rep;
-%                 else
-%                     ind=ind_cond+(rep_now-1)*max_cond;
-%                 end
-               ind=ind_cond+(rep_now-1)*max_cond;
-
-                %Getting data
-                data_in=all_data_now{rep_now,strain_now,cond_now};
-                %data_now=data_in.MY;
-                data_now=data_in.(plot_what);
-
-                %Cleaning data
-                goodones=~isnan(data_now(last_frame,:));
-                data_now=data_now(:,goodones);
-
-                %Plotting
-                
-%                 if sum(goodones)<30
-%                     keep_rep=ind;
-%                     continue;
-%                 else
-%                     keep_rep=0;
-%                 end
-                subplot(max_done_repeats_here,max_cond,ind);
-                plot(data_now);
-                if strcmp(plot_what,'MY')
-                    axis([0,270,0,axis_y_max(ind_cond)]);
-                elseif strcmp(plot_what,'MR')
-                    axis([0,270,0,1500]);
-                elseif strcmp(plot_what,'elong_rate')
-                    axis([0,270,0,1]);
-                end
-                %Setting title
-                %title(all_data_names{rep_now,strain_now,cond_now});
-                title(all_data_names_now{rep_now,strain_now,cond_now});
-
-                text(0.1,0.8,['n: ',num2str(sum(goodones))],'Unit','normalize');
-                
-                %Setting labels
-                if mod(ind,max_cond)==1
-                    ylabel('MY');
-                end
-                if ind>max_cond*max_done_repeats_here-max_cond
-                    xlabel('frames');
-                end
-                xline(107,'r');
-
-
-            end
-        end
-    end
-%     sgtitle(t_name3{i});
-end
 
         
 
@@ -827,11 +886,9 @@ if plot_hetero_cum==1;
                     continue;
                 end
                 goodones=~isnan(data_now(last_frame,:));
-
-                                    %Checking that growth rate is good
-                    data_gr=data_in.elong_rate;
-                    mean_gr=nanmean(data_gr,2);
-                    fg=(mean_gr<thresh_gr);
+                data_gr_now=all_data{rep_now,strain_now,cond_now}.elong_rate(1:last_frame,:);
+                m_gr_now=nanmean(data_gr_now,2);
+                
                 if sum(goodones)<=cut_off&&sum(fg)/sum(goodones)>=max_cells_short_gr/50
                     continue;
                 end
