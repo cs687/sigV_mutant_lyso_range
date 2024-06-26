@@ -43,6 +43,7 @@ remove_lost_cells=1;
 kill=1; %1= Removing repeats with problems 0 otherwise
 max_cells_rep=40; %min number of cells in last frame
 max_cells_short_gr=10;%Use to calculate how many slow growing cells are acceptable in one repeat
+thresh_gr=0.3; %Threshold for slow growing cells
 
 
 
@@ -160,13 +161,14 @@ for day_now=1:length(data_day)
                         goodones=~isnan(data_now(last_frame,:));
                         %two conditions 1. I need a min number of cells
                         % 2. a min ratio of normal growing cells
-                        if sum(goodones)>max_cells_rep&&sum(m_gr_now<0.3)/sum(goodones)<max_cells_short_gr/max_cells_rep
+                        if sum(goodones)>max_cells_rep&&sum(m_gr_now<thresh_gr)/sum(goodones)<max_cells_short_gr/max_cells_rep
                            ind_kill(rep_now,strain_now,cond_now)=1;
                         else
                            ind_kill(rep_now,strain_now,cond_now)=0;
                         end
                     end
-
+                    
+                    %Removing cells which do not make it the end of the movie
                     if remove_lost_cells==1
                         data_temp=all_data{rep_now,strain_now,cond_now};
                         data_MY=data_temp.('MY')(1:last_frame,:);
@@ -210,7 +212,7 @@ if kill==1;
     all_data_names=all_data_names_temp;
 end
 
-% disp('test');
+ disp('test');
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -345,92 +347,27 @@ if plot_all_single==1;
     % Plotting individual repats in their own subplot. Each plot has single
     % cell traces.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-    %parameters
-    good_traces_only=1;%plots only traces longer than cutoff
-    %cut_off=40;
-    cut_off=max_cells_rep;
-    thresh_gr=0.3;
-    num_loaded_good_now=zeros(length(strains),length(condition));
-    data_do_now=cell(10,length(strains),length(condition));
-   
-    if good_traces_only==1
-        for strain_now=1:length(strains)
-            for cond_now=1:length(condition)
-                for rep_now=1:num_loaded_cond(strain_now,cond_now);
-                    data_in=all_data{rep_now,strain_now,cond_now};
-                    %data_now=data_in.MY;
-                    data_now=data_in.(plot_what);
-
-                    %Checking that growth rate is good
-                    data_gr=data_in.elong_rate;
-                    mean_gr=nanmean(data_gr,2);
-                    fg=(mean_gr<thresh_gr);
-
-                    goodones=~isnan(data_now(last_frame,:));
-                    if sum(goodones)>cut_off&&sum(fg)/sum(goodones)<max_cells_short_gr/50;
-                        num_loaded_good_now(strain_now,cond_now)=num_loaded_good_now(strain_now,cond_now)+1;
-                        data_do_now{num_loaded_good_now(strain_now,cond_now),strain_now,cond_now}=data_in;
-                        all_data_names_now{num_loaded_good_now(strain_now,cond_now),strain_now,cond_now}=all_data_names{rep_now,strain_now,cond_now};
-                    else
-                        %disp('shit');
-                    end
-                end
-            end
-        end
-    end
-
-    %First checking max number of repeats
-    max_done_repeats=max(num_loaded_cond(:));
-    max_cond=length(strains)*length(condition);
-    ind_cond=0;
-    %keep_rep=0;
-    goodones=0;
-
-    if good_traces_only==1
-        num_loaded_cond_now=num_loaded_good_now;
-        all_data_now=data_do_now;
-        max_done_repeats_here=max(num_loaded_cond_now(:));
-    else
-        all_data_now=all_data;
-        num_loaded_cond_now=num_loaded_cond;
-        max_done_repeats_here=max_done_repeats;
-    end
     
+    %Setting index variables
+    max_cond=length(strains)*length(condition);
+    max_done_repeats_here=max2(sum(~cellfun(@isempty, all_data)));
+    ind_cond=0;
+
+    %Loop over all conditions
     figure;
-   
     for strain_now=1:length(strains)
         for cond_now=1:length(condition)
             ind_cond=ind_cond+1;
-            %ind=ind_cond;
-            keep_rep=0;
-            for rep_now=1:num_loaded_cond_now(strain_now,cond_now);
-%                 %Setting index
-%                 if keep_rep~=0
-%                     ind=keep_rep;
-%                 else
-%                     ind=ind_cond+(rep_now-1)*max_cond;
-%                 end
-               ind=ind_cond+(rep_now-1)*max_cond;
+            max_rep_now=sum(~cellfun(@isempty, all_data(:,strain_now,cond_now)));
+            for rep_now=1:max_rep_now
+                %Setting correct index for subplot
+                ind=ind_cond+(rep_now-1)*max_cond;
 
                 %Getting data
-                data_in=all_data_now{rep_now,strain_now,cond_now};
-                %data_now=data_in.MY;
+                data_in=all_data{rep_now,strain_now,cond_now};
                 data_now=data_in.(plot_what);
 
-                %Cleaning data
-                goodones=~isnan(data_now(last_frame,:));
-                data_now=data_now(:,goodones);
-
-                %Plotting
-                
-%                 if sum(goodones)<30
-%                     keep_rep=ind;
-%                     continue;
-%                 else
-%                     keep_rep=0;
-%                 end
+                %Plotting Data
                 subplot(max_done_repeats_here,max_cond,ind);
                 plot(data_now);
                 if strcmp(plot_what,'MY')
@@ -440,27 +377,31 @@ if plot_all_single==1;
                 elseif strcmp(plot_what,'elong_rate')
                     axis([0,270,0,1]);
                 end
-                %Setting title
-                %title(all_data_names{rep_now,strain_now,cond_now});
-                title(all_data_names_now{rep_now,strain_now,cond_now});
 
+                %Setting title
+                title(all_data_names{rep_now,strain_now,cond_now});
+                
+                %Adding text with number of cells
                 text(0.1,0.8,['n: ',num2str(sum(goodones))],'Unit','normalize');
                 
                 %Setting labels
                 if mod(ind,max_cond)==1
                     ylabel('MY');
                 end
-                if ind>max_cond*max_done_repeats_here-max_cond
+                if ind>max_cond*max_done_repeats_here-max_cond||rep_now==max_rep_now
                     xlabel('frames');
                 end
+
                 xline(107,'r');
 
 
             end
         end
     end
-%     sgtitle(t_name3{i});
+     sgtitle([plot_what,' single cell traces']);
 end
+
+
 
 
 
