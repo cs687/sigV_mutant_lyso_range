@@ -3,11 +3,17 @@ function [all_data,all_data_names]=plotting_rsiV_mutant_lyso_range_24_06_25_v1(a
 %What to plotswitch_frame
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %close all;
-plot_mean_individual_strain=1; %plots mean data with each strain in a subplot, different conditions are plotted in different colours, repeats are plotted as individual lines with different line specs
-plot_mean_all=0; %as plot_mean_individual_strain but plots mean of all repeats with each strain in a subolot, in different colours, only the mean for a condition and strain is plotted.
-plot_all_single=0;%Plotting each repeat into a new subplot
+plot_mean_individual_strain=0; %plots mean data with each strain in a subplot, different conditions are plotted in different colours, repeats are plotted as individual lines with different line specs
+plot_mean_all=1; %as plot_mean_individual_strain but plots mean of all repeats with each strain in a subolot, in different colours, only the mean for a condition and strain is plotted.
+plot_all_single=1;%Plotting each repeat into a new subplot
 
-plot_hetero_cum=0; % Plotting cummaltive activation with a subplot for each strain and condition. A line is a repeat.
+plot_gr_histogram=1;%Plotting histogram of gr per trace
+plot_width_histogram=1; %Plotting histogram of width for all repeats
+plot_gr_histogram=1; %Plotting histogram of gr for all repeats
+plot_hetero_cum=1; % Plotting cummaltive activation with a subplot for each strain and condition. A line is a repeat.
+plot_all_data_for_one_repeat=0; %Plotting MY, Mean MY, gr and cummulative activation for one repeat
+
+% plot_mean_hetero_cum=1;% Plotting cummaltive activation with a subplot for each strain and condition. A line is a repeat.
 
 plot_mean_individual=0;
 plot_single_trace=0;
@@ -18,14 +24,14 @@ plot_10xV=0;
 plot_all_data=0;
 %%%%%%%%%%%%%%%
 plot_all_data_part=0;
-plot_hetero_cum=1;
+%plot_hetero_cum=1;
 plot_hetero_hist=0;
 plot_mean_fraction=0;
 plot_single_trace_15x=0;
 plot_single_trace_15x_single=0;
 
 export_data=0;
-load_data=0;
+load_data=1;
 % all_data,all_data_names
 
 %%%%%%%%%%%%%%%%%%%%%%
@@ -41,6 +47,8 @@ last_frame=220;%289 %last frame of movie/ to analyize
 % Remove cells which do not make to to the end of the movie
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 remove_lost_cells=1;
+remove_fat_cells=1;
+remove_slow_gr_cells=1;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%
 % Kill input
@@ -49,6 +57,11 @@ kill=1; %1= Removing repeats with problems 0 otherwise
 max_cells_rep=40; %min number of cells in last frame
 max_cells_short_gr=10;%Use to calculate how many slow growing cells are acceptable in one repeat
 thresh_gr=0.3; %Threshold for slow growing cells
+
+%%%%%%%%%%%%%%%%
+% heterogenity 
+%%%%%%%%%%%%%%%%
+sig_activation_thresh=3;
 
 
 
@@ -189,6 +202,47 @@ if load_data==1;
                             end
                             all_data{rep_now,strain_now,cond_now}=data_temp;
                         end
+
+                        if remove_fat_cells==1;
+                            data_temp=all_data{rep_now,strain_now,cond_now};
+                            data_wid_all=data_temp.('wid');
+                            data_wid=data_temp.('wid')(1:adjust_to,:);
+                            data_wid_m=nanmean(data_wid(:));
+                            data_wid_s=nanstd(data_wid(:));
+
+    
+                            goodones=sum(data_wid_all>(data_wid_m+6*data_wid_s))==0;
+                            fnames=fieldnames(data_temp); %Getting all fieldnames
+                            for fn=1:length(fnames)
+                                %Getting all field names
+                                temp_field_data=data_temp.(fnames{fn});
+                                %calculating adjustment
+                                data_temp.(fnames{fn})=temp_field_data(:,goodones);
+                            end
+                            all_data{rep_now,strain_now,cond_now}=data_temp;
+                        end
+
+                        if remove_slow_gr_cells==1
+                            %Removing all non devidind cells (cell which
+                            %grow slwoer th
+                            data_temp=all_data{rep_now,strain_now,cond_now};
+                            data_wid_all=data_temp.('elong_rate');
+%                             data_wid=data_temp.('elong_rate')(1:adjust_to,:);
+                            data_wid_m=nanmean(data_wid_all,1);
+%                             data_wid_s=nanstd(data_wid(:));
+
+    
+                            goodones=data_wid_m>=0.5;
+                            fnames=fieldnames(data_temp); %Getting all fieldnames
+                            for fn=1:length(fnames)
+                                %Getting all field names
+                                temp_field_data=data_temp.(fnames{fn});
+                                %calculating adjustment
+                                data_temp.(fnames{fn})=temp_field_data(:,goodones);
+                            end
+                            all_data{rep_now,strain_now,cond_now}=data_temp;
+                        end
+
     
     
                     end
@@ -299,6 +353,8 @@ if plot_mean_all==1;
     %Setting figure
     figure('units','normalized','outerposition',[0 0 1 1]);
     
+    %Setting output 
+    all_mean_data=cell(length(strains),length(condition));
     %loopting over conditions
     for strain_now=1:length(strains)
         for cond_now=1:length(condition)
@@ -335,6 +391,7 @@ if plot_mean_all==1;
             % Calculating mean of condition and plotting this it with errorbars
             hold on;
             errorbar(mean(temp_data,2,'omitnan'),std(temp_data,0,2,'omitnan')/sqrt(sum(~isnan(temp_data(1,:)))),'color',cmap(cond_now,:))
+            all_mean_data{strain_now,cond_now}=temp_data;
         end
     sgtitle(strrep(plot_what,'_',' '));
 
@@ -361,7 +418,7 @@ if plot_all_single==1;
     ind_cond=0;
 
     %Loop over all conditions
-    figure;
+    figure('units','normalized','outerposition',[0 0 1 1]);
     for strain_now=1:length(strains)
         for cond_now=1:length(condition)
             ind_cond=ind_cond+1;
@@ -389,6 +446,7 @@ if plot_all_single==1;
                 title(all_data_names{rep_now,strain_now,cond_now});
                 
                 %Adding text with number of cells
+                goodones=~isnan(data_now(last_frame,:));
                 text(0.1,0.8,['n: ',num2str(sum(goodones))],'Unit','normalize');
                 
                 %Setting labels
@@ -413,6 +471,8 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 if plot_hetero_cum==1;
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Description
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Plotting cummaltive activation with a subplot for each strain and
     % condition. A line is a repeat.
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -422,6 +482,7 @@ if plot_hetero_cum==1;
     for strain_now=1:length(strains)
         for cond_now=1:length(condition)
             ii=ii+1;
+            temp_data=nan(1100,50);
             for rep_now=1:length(repeat_name)
                 subplot(4,3,ii);
                 if rep_now==1
@@ -445,12 +506,12 @@ if plot_hetero_cum==1;
                 data_all=all_data{rep_now,strain_now,cond_now}.MY-200;
                 data_part=data_all(1:adjust_to,:);
                 %data_part=data_all(1:switch_frame(day_now),:);
-                if strain_now==1
+                %if strain_now==1
                     m=nanmean(data_part(:));
                     s=nanmean(data_part(:));
-                    thresh=m+3*s;
-                end
-                data_part_on=data_all(switch_frame(day_now):last_frame,:);
+                    thresh=m+sig_activation_thresh*s;
+                %end
+                data_part_on=data_all(adjust_to:last_frame,:);
                 %data_part_on=data_all(switch_frame(day_now):last_frame,:);
                 goodones=~isnan(data_part_on(end,:));
                 data_part_on2=data_part_on(:,goodones);
@@ -458,8 +519,132 @@ if plot_hetero_cum==1;
     
     
                 hold on;
+                temp_data(1:length(on_temp),rep_now)=on_temp;
                 plot(on_temp,'color',cmap(cond_now,:),'LineStyle', repeat_line{rep_now});
                 sgtitle('Cumulative Activation');
+            end
+            all_cum_data{strain_now,cond_now}=temp_data;
+        end
+    end
+    if export_data==1
+        exportgraphics(gcf,[data_path_main,'\Figures\mean_individual.png'],'Resolution',1200);
+    end
+
+
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Turn on dynamics cummulative plot
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if plot_all_data_for_one_repeat==1;
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Description
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Plotting MY, Mean MY, gr and cummulative activation for one repeat
+    % each row is is one repeat
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+
+
+    %ii=0;
+    ind_cond=0;
+    for strain_now=1:length(strains)
+        for cond_now=1:length(condition)
+            %ii=ii+1;
+            ii=1;
+            ind_cond=ind_cond+1;
+            for rep_now=1:length(repeat_name)
+                if mod(ii,16)==1&&~isempty(all_data{rep_now,strain_now,cond_now})
+                   figure('units','normalized','outerposition',[0 0 1 1]);
+                    ii=1;
+                end
+
+                if isempty(all_data{rep_now,strain_now,cond_now})
+                    continue;
+                end
+                
+                %Plotting MY singel cell traces
+                subplot(4,4,ii);
+                plot(all_data{rep_now,strain_now,cond_now}.(plot_what)-200);
+                hold on;
+                plot(all_mean_data{strain_now,cond_now}(:,rep_now)-200,'r','Linewidth',2);
+                hold on;
+%                 %wide cells
+%                 wid_now=all_data{rep_now,strain_now,cond_now}.('wid');
+%                 wid_m=nanmean(wid_now(:));
+%                 wid_s=nanstd(wid_now(:));
+%                 goodones=sum(wid_now>(wid_m+wid_s*6))~=0;
+%                 plot(all_data{rep_now,strain_now,cond_now}.(plot_what)(:,goodones)-200,'b', 'Linewidth',1);
+
+
+
+                xlabel('frames');
+                ylabel(plot_what);
+                title([plot_what, all_data_names{rep_now,strain_now,cond_now}]);
+                xline(adjust_to,'--k');
+                
+                data_all=all_data{rep_now,strain_now,cond_now}.(plot_what)-200;
+                data_part=data_all(1:adjust_to,:);
+                %data_part=data_all(1:switch_frame(day_now),:);
+                %if strain_now==1
+                    m=nanmean(data_part(:));
+                    s=nanmean(data_part(:));
+                    thresh=m+sig_activation_thresh*s;
+
+                yline(thresh,'--k')
+
+                if strcmp(plot_what,'MY')
+                    axis([0,270,0,axis_y_max(ind_cond)]);
+                elseif strcmp(plot_what,'MR')
+                    axis([0,270,0,1500]);
+                elseif strcmp(plot_what,'elong_rate')
+                    axis([0,270,0,1]);
+                end
+                
+
+                
+                %Plotting mean MY 
+                subplot(4,4,ii+1);
+                plot(all_mean_data{strain_now,cond_now}-200,'b');
+                hold on;
+                plot(all_mean_data{strain_now,cond_now}(:,rep_now)-200,'r');
+                xlabel('frames');
+                ylabel(plot_what);
+                title([plot_what, all_data_names{rep_now,strain_now,cond_now}]);
+
+                if strcmp(plot_what,'MY')
+                    axis([0,270,0,axis_y_max(ind_cond)]);
+                elseif strcmp(plot_what,'MR')
+                    axis([0,270,0,1500]);
+                elseif strcmp(plot_what,'elong_rate')
+                    axis([0,270,0,1]);
+                end
+
+                %Plotting MY singel cell traces
+                subplot(4,4,ii+2);
+                e_data=all_data{rep_now,strain_now,cond_now}.('elong_rate');
+                e_data(e_data<0)=nan;
+                plot(e_data);
+                xlabel('frames');
+                ylabel('Elong Rate');
+                title(['Elong Rate', all_data_names{rep_now,strain_now,cond_now}]);
+
+                axis([0,270,0,1]);
+                
+                
+                %Plotting cum
+                subplot(4,4,ii+3);
+                plot(all_cum_data{strain_now,cond_now},'b');
+                hold on;
+                plot(all_cum_data{strain_now,cond_now}(:,rep_now),'r');
+                xlabel('frames');
+                ylabel('Fraction');
+                title(['ON', all_data_names{rep_now,strain_now,cond_now}]);
+                a=axis;
+                axis([0,a(2),0,1]);
+                ii=ii+4;
+
+%                 sgtitle('Cumulative Activation');
             end
         end
     end
@@ -471,6 +656,136 @@ if plot_hetero_cum==1;
 end
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Plotting width histogram
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if plot_width_histogram==1;
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Description
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Plotting histogram of width for all repeats
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %Setting index variables
+    max_cond=length(strains)*length(condition);
+    max_done_repeats_here=max2(sum(~cellfun(@isempty, all_data)));
+    ind_cond=0;
+
+    %Loop over all conditions
+    figure('units','normalized','outerposition',[0 0 1 1]);
+    for strain_now=1:length(strains)
+        for cond_now=1:length(condition)
+            ind_cond=ind_cond+1;
+            max_rep_now=sum(~cellfun(@isempty, all_data(:,strain_now,cond_now)));
+            for rep_now=1:max_rep_now
+                %Setting correct index for subplot
+                ind=ind_cond+(rep_now-1)*max_cond;
+
+                %Getting data
+                data_in=all_data{rep_now,strain_now,cond_now};
+                data_now=data_in.('wid');
+
+                %Plotting Data
+                subplot(max_done_repeats_here,max_cond,ind);
+                histogram(data_now,0:0.25:max2(data_now),'normalization','probability');
+%                 a=axis;
+                %axis([0,a(2),0,1]);
+
+                %Setting title
+                title(all_data_names{rep_now,strain_now,cond_now});
+                
+%                 %Adding text with number of cells
+%                 goodones=~isnan(data_now(last_frame,:));
+                 text(0.1,0.8,['w: ',num2str(nanmean(data_now(:)))],'Unit','normalize');
+                 xline(nanmean(data_now(:)),'r');
+                 xline(nanmean(data_now(:))+3*nanstd(data_now(:)),'r');
+                
+                %Setting labels
+                if mod(ind,max_cond)==1
+                    ylabel('Fraction');
+                end
+                if ind>max_cond*max_done_repeats_here-max_cond||rep_now==max_rep_now
+                    xlabel('frames');
+                end
+
+                %xline(102,'r');
+
+
+            end
+        end
+    end
+     sgtitle([plot_what,' single cell traces']);
+
+
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Plotting width histogram
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+if plot_gr_histogram==1;
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Description
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    % Plotting histogram of growth rate for all repeats
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    %Setting index variables
+    max_cond=length(strains)*length(condition);
+    max_done_repeats_here=max2(sum(~cellfun(@isempty, all_data)));
+    ind_cond=0;
+
+    %Loop over all conditions
+    %figure('units','normalized','outerposition',[0 0 1 1]);
+    for strain_now=1:length(strains)
+        %figure('units','normalized','outerposition',[0 0 1 1]);
+        ii=1;
+        for cond_now=1:length(condition)
+            ind_cond=ind_cond+1;
+            max_rep_now=sum(~cellfun(@isempty, all_data(:,strain_now,cond_now)));
+            for rep_now=1:max_rep_now
+                if mod(ii,16)==1;
+                    figure('units','normalized','outerposition',[0 0 1 1]);
+                end
+                %Setting correct index for subplot
+                ind=ind_cond+(rep_now-1)*max_cond;
+
+                %Getting data
+                data_in=all_data{rep_now,strain_now,cond_now};
+                data_now=data_in.('elong_rate');
+                data_now_gr_m=nanmean(data_now,1);
+
+                %Plotting Data
+                %subplot(max_done_repeats_here,max_cond,ind);
+                subplot(4,4,ii);
+                histogram(data_now_gr_m,0:0.1:max2(data_now_gr_m),'normalization','probability');
+%                 a=axis;
+                %axis([0,a(2),0,1]);
+
+                %Setting title
+                title(all_data_names{rep_now,strain_now,cond_now});
+                
+%                 %Adding text with number of cells
+%                 goodones=~isnan(data_now(last_frame,:));
+                 text(0.1,0.8,['gr: ',num2str(nanmean(data_now(:)))],'Unit','normalize');
+                 xline(nanmean(data_now_gr_m(:)),'--r');
+                 xline(nanmean(data_now_gr_m(:))+3*nanstd(data_now_gr_m(:)),'r');
+                xline(nanmean(data_now_gr_m(:))+nanstd(data_now_gr_m(:)),'r');
+                %Setting labels
+                if mod(ind,max_cond)==1
+                    ylabel('Fraction');
+                end
+                if ind>max_cond*max_done_repeats_here-max_cond||rep_now==max_rep_now
+                    xlabel('frames');
+                end
+                ii=ii+1;
+                %xline(102,'r');
+
+
+            end
+        end
+    end
+     sgtitle(['Gr',' single cell traces']);
+
+
+end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Plotting mean by condition
